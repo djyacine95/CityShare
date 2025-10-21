@@ -1,0 +1,97 @@
+body {
+    font-family: sans-serif;
+    background-image: url('background.png');
+    
+    /* Replaces 'cover' with a percentage to control the zoom. */
+    /* Try changing 110% to 120% or 105% to get the perfect fit. */
+    background-size: 85%;
+    
+    background-position: center;
+    background-repeat: no-repeat;
+    
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+}
+
+.login-container {
+   
+    background-color: rgba(255, 255, 255, 0.75); 
+    
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    text-align: center;
+    
+    width: 520px; 
+    height: 565px; 
+    
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+    box-sizing: border-box;
+}
+
+header {
+    margin-bottom: 1.5rem;
+}
+
+
+.logo {
+    max-width: 180px; 
+    height: auto;
+}
+
+.input-group {
+    margin-bottom: 1rem;
+    text-align: left;
+}
+
+.input-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: #555;
+    font-weight: 600;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    box-sizing: border-box; 
+}
+
+button {
+    width: 100%;
+    padding: 0.75rem;
+    border: none;
+    border-radius: 5px;
+    background: linear-gradient(90deg, #0052D4, #4364F7, #6FB1FC); /* Gradient to match logo */
+    color: #fff;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+button:hover {
+    transform: translateY(-2px); /* Slight lift effect on hover */
+}
+
+footer {
+    margin-top: 1rem;
+}
+
+footer a {
+    color: #007bff;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+footer a:hover {
+    text-decoration: underline;
+}
