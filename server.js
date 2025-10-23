@@ -23,16 +23,13 @@ app.use(express.static('public'));
 
 // 5. Define Routes
 
-// This route serves your main login page
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// This route handles the form submission
 app.post('/login', (req, res) => {
   const { email, password } = req.body;
 
-  // --- REAL DATABASE LOGIC ---
   const sql = 'SELECT * FROM users WHERE email = ?';
 
   db.get(sql, [email], (err, user) => {
@@ -41,13 +38,11 @@ app.post('/login', (req, res) => {
       return res.send('<h1>Error</h1><p>Something went wrong. Please try again.</p>');
     }
 
-    // Check if a user with that email was found
     if (!user) {
       console.log(`Login failed: No user found with email ${email}`);
       return res.send('<h1>Login Failed</h1><p>Incorrect email or password. <a href="/">Try again</a>.</p>');
     }
 
-    // User was found! Now, compare the submitted password with the hashed password from the DB.
     bcrypt.compare(password, user.password, (err, result) => {
       if (result === true) {
         // Passwords match!
@@ -66,4 +61,5 @@ app.post('/login', (req, res) => {
 // 6. Start the server
 app.listen(port, () => {
   console.log(`Server is running at http://localhost:${port}`);
+
 });
