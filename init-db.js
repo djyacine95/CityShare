@@ -1,7 +1,6 @@
 const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcryptjs');
 
-// This will create a file named 'cityshare.db' in your folder
 const db = new sqlite3.Database('./cityshare.db', (err) => {
   if (err) {
     console.error(err.message);
@@ -9,16 +8,12 @@ const db = new sqlite3.Database('./cityshare.db', (err) => {
   console.log('Connected to the cityshare.db database.');
 });
 
-// --- HASH OUR TEST PASSWORD ---
-// We hash the password 'cityshare' before storing it
+//hash the password 'cityshare' before storing it
 const testPassword = 'cityshare';
 const salt = bcrypt.genSaltSync(10);
 const hashedPassword = bcrypt.hashSync(testPassword, salt);
 
-// --- RUN SQL COMMANDS ---
-// db.serialize() ensures commands run one after the other
 db.serialize(() => {
-  // 1. Create the 'users' table if it doesn't exist
   db.run(`CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     email TEXT UNIQUE NOT NULL,
@@ -28,9 +23,6 @@ db.serialize(() => {
       return console.error(err.message);
     }
     console.log("Created 'users' table.");
-
-    // 2. Insert our test user (using the hashed password)
-    // We use a placeholder (?) to safely insert data
     const sql = `INSERT INTO users (email, password) VALUES (?, ?)`;
 
     db.run(sql, ['yacine.djeddi@gmail.com', hashedPassword], function(err) {
@@ -53,4 +45,5 @@ db.serialize(() => {
       });
     });
   });
+
 });
