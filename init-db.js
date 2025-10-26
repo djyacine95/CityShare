@@ -1,69 +1,70 @@
 // init-db.js
 const fs = require('fs');
+const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcryptjs');
 
 // Paths
-const dbFile = './cityshare.db';
-const schemaFile = './db/schema.sql'; //DB Schema File
+const dbFile = path.join(__dirname, 'db', 'cityshare.db');
+const schemaFile = path.join(__dirname, 'db', 'schema.sql');
 
-//  Connect or create DB
-const db = new sqlite3.Database(dbFile, (err) => {
-  if (err) {
-    console.error(' Error opening database:', err.message);
-  } else {
-    console.log('Connected to the cityshare.db database.');
-    initializeDatabase();
+// Connect or create DB
+const db = new sqlite3.Database(
+  dbFile,
+  sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE,
+  (err) => {
+    if (err) {
+      console.error('Error opening database:', err.message);
+    } else {
+      console.log('Connected to the cityshare.db database.');
+      initializeDatabase();
+    }
   }
-});
+);
 
-// Function to initialize the DB schema and seed data
+// Apply schema then seed
 function initializeDatabase() {
-  // Read SQL schema file
   let schema;
   try {
     schema = fs.readFileSync(schemaFile, 'utf8');
   } catch (err) {
-    console.error(' Could not read schema.sql file:', err.message);
-    db.close();
-    return;
+    console.error('Could not read schema.sql:', err.message);
+    return db.close();
   }
 
-  // Apply schema
   db.exec(schema, (err) => {
     if (err) {
-      console.error(' Error applying schema:', err.message);
-      db.close();
-      return;
+      console.error('Error applying schema:', err.message);
+      return db.close();
     }
-    console.log(' Database schema applied successfully.');
-
+    console.log('Database schema applied successfully.');
     seedTestData();
   });
 }
 
-// Function to seed a sample user
+// Seed users (safe to re-run)
 function seedTestData() {
-  const testEmail = 'yacine.djeddi@gmail.com';
-  const testPassword = 'cityshare';
-  const hashedPassword = bcrypt.hashSync(testPassword, 10);
+  const users = [
+    { email: 'yacine.djeddi@gmail.com', password: 'cityshare' },
+    { email: 'mago@example.com',        password: 'mago' }   // 
+  ];
 
-  const insertSQL = `INSERT INTO users (email, password) VALUES (?, ?)`;
-
-  db.run(insertSQL, [testEmail, hashedPassword], function (err) {
-    if (err) {
-      if (err.message.includes('UNIQUE constraint failed')) {
-        console.log(`Test user (${testEmail}) already exists.`);
-      } else {
-        console.error('Error inserting test user:', err.message);
-      }
-    } else {
-      console.log(`Test user created with ID: ${this.lastID}`);
+  db.serialize(() => {
+    const stmt = db.prepare('INSERT OR IGNORE INTO users (email, password) VALUES (?, ?)');
+    for (const u of users) {
+      const hash = bcrypt.hashSync(u.password, 10);
+      stmt.run([u.email, hash]);
     }
-
-    db.close((err) => {
-      if (err) console.error(' Error closing database:', err.message);
-      else console.log('Closed the database connection.');
+    stmt.finalize((err) => {
+      if (err) {
+        console.error('Seeding error:', err.message);
+      } else {
+        console.log('Seeded users:', users.map(u => u.email).join(', '));
+      }
+      db.close((err) => {
+        if (err) console.error('Error closing DB:', err.message);
+        else console.log('Closed the database connection.');
+      });
     });
   });
 }

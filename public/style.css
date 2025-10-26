@@ -2,18 +2,10 @@ body {
     font-family: sans-serif;
     background-color: #000; 
     background-image: url('images/background.png');
-<<<<<<< Updated upstream
-    
-    background-size: 85%;
-    
-    background-position: center;
-=======
     background-size: cover; 
     background-position: center center; 
->>>>>>> Stashed changes
     background-repeat: no-repeat;
     background-attachment: fixed; 
-    
     display: flex;
     justify-content: center;
     align-items: center;
