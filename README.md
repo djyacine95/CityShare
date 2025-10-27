@@ -35,7 +35,7 @@ The app allows users to:
 
 ## Team
 - **Yacine Djeddi** – Backend logic, authentication, and database design  
-- **Margo Margarita**
+- **Margarita Rincon**
 - **Ryan Duong** 
 - **Daniel Ung**
 
