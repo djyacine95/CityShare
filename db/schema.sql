@@ -18,41 +18,75 @@ CREATE TABLE IF NOT EXISTS profiles (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- Listings: items posted by users
-CREATE TABLE IF NOT EXISTS listings (
+
+-- CATEGORIES (normalized)
+CREATE TABLE IF NOT EXISTS categories (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL,
-  title TEXT NOT NULL,
-  description TEXT,
-  price_cents INTEGER,        -- NULL for free/borrow
-  condition TEXT,             -- 'new','good','fair'
-  type TEXT NOT NULL CHECK (type IN ('sell','donate','borrow')),
-  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','hidden','closed','sold')),
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  name TEXT UNIQUE NOT NULL   -- e.g. clothing, tools, furniture, electronics, books, toys, etc.
 );
 
--- Optional images
+-- LISTINGS
+CREATE TABLE IF NOT EXISTS listings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+  -- business fields
+  item_name TEXT NOT NULL,                              -- short title/name of item
+  listing_number TEXT UNIQUE,                           
+  description TEXT,
+  image_url TEXT,                                       -- optional primary image
+
+  category_id INTEGER,                                  -- FK to categories
+  type TEXT NOT NULL CHECK (type IN ('sell','donate','borrow')),
+  condition TEXT,                                       -- 'new','like-new','good','fair','poor' (
+
+  price_cents INTEGER,                                  -- NULL for donate/borrow
+
+  -- lifecycle/status
+  status TEXT NOT NULL DEFAULT 'active'
+         CHECK (status IN ('active','paused','deleted','closed','sold')),
+
+  -- availability/usage (borrow/loan scenarios)
+  usage_status TEXT NOT NULL DEFAULT 'available'
+         CHECK (usage_status IN ('available','reserved','borrowed')),
+  borrowed_by_user_id INTEGER,                          -- who currently borrowed it
+  borrowed_until DATETIME,                              -- optional due date
+
+  -- audit
+  user_id INTEGER NOT NULL,                             -- owner (who posted)
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
+  FOREIGN KEY (borrowed_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- TRIGGER: keep updated_at fresh
+CREATE TRIGGER IF NOT EXISTS trg_listings_updated_at
+AFTER UPDATE ON listings
+FOR EACH ROW BEGIN
+  UPDATE listings SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+END;
+
+-- TRIGGER: auto-generate listing_number after insert (L + zero-padded id)
+CREATE TRIGGER IF NOT EXISTS trg_listings_number
+AFTER INSERT ON listings
+FOR EACH ROW WHEN NEW.listing_number IS NULL
+BEGIN
+  UPDATE listings
+     SET listing_number = 'L' || printf('%08d', NEW.id)
+   WHERE id = NEW.id;
+END;
+
+-- OPTIONAL: multiple images per listing
 CREATE TABLE IF NOT EXISTS listing_images (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   listing_id INTEGER NOT NULL,
   url TEXT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (listing_id) REFERENCES listings(id) ON DELETE CASCADE
 );
 
--- Tags + many-to-many join
-CREATE TABLE IF NOT EXISTS tags (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT UNIQUE NOT NULL   -- 'clothing','furniture','free','sell','borrow','tools', etc.
-);
-
-CREATE TABLE IF NOT EXISTS listing_tags (
-  listing_id INTEGER NOT NULL,
-  tag_id INTEGER NOT NULL,
-  PRIMARY KEY (listing_id, tag_id),
-  FOREIGN KEY (listing_id) REFERENCES listings(id) ON DELETE CASCADE,
-  FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
-);
 
 -- Favorites (wishlist)
 CREATE TABLE IF NOT EXISTS favorites (
@@ -76,9 +110,11 @@ CREATE TABLE IF NOT EXISTS messages (
   FOREIGN KEY (listing_id) REFERENCES listings(id) ON DELETE SET NULL
 );
 
--- Helpful indices
-CREATE INDEX IF NOT EXISTS idx_listings_user ON listings(user_id);
-CREATE INDEX IF NOT EXISTS idx_listings_type ON listings(type);
-CREATE INDEX IF NOT EXISTS idx_listings_status ON listings(status);
-CREATE INDEX IF NOT EXISTS idx_listing_tags_tag ON listing_tags(tag_id);
+-- Helpful indexes
+CREATE INDEX IF NOT EXISTS idx_listings_user        ON listings(user_id);
+CREATE INDEX IF NOT EXISTS idx_listings_category    ON listings(category_id);
+CREATE INDEX IF NOT EXISTS idx_listings_type        ON listings(type);
+CREATE INDEX IF NOT EXISTS idx_listings_status      ON listings(status);
+CREATE INDEX IF NOT EXISTS idx_listings_usage       ON listings(usage_status);
+CREATE INDEX IF NOT EXISTS idx_listings_created_at  ON listings(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_messages_to_user ON messages(to_user_id, created_at DESC);
