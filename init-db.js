@@ -1,123 +1,100 @@
-// init-db.js
+// init-db.js 
 const fs = require('fs');
 const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcryptjs');
 
-// Paths
 const DB_PATH = path.join(__dirname, 'db', 'cityshare.db');
 const SCHEMA_PATH = path.join(__dirname, 'db', 'schema.sql');
 
-// Open (create if missing)
 const db = new sqlite3.Database(
   DB_PATH,
   sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE,
   (err) => {
     if (err) console.error('Error opening database:', err.message);
-    else console.log('Connected to cityshare.db');
+    else console.log('Connected to', DB_PATH);
   }
 );
 
-// ---- tiny promise helpers ----
-const run = (sql, params=[]) =>
-  new Promise((resolve, reject) => db.run(sql, params, function (err) {
-    if (err) reject(err); else resolve(this);
-  }));
-const get = (sql, params=[]) =>
-  new Promise((resolve, reject) => db.get(sql, params, (err, row) => {
-    if (err) reject(err); else resolve(row);
-  }));
-const all = (sql, params=[]) =>
-  new Promise((resolve, reject) => db.all(sql, params, (err, rows) => {
-    if (err) reject(err); else resolve(rows);
-  }));
+// tiny helpers
+const run = (sql, params=[]) => new Promise((res, rej) => db.run(sql, params, function (e) { e ? rej(e) : res(this); }));
+const get = (sql, params=[]) => new Promise((res, rej) => db.get(sql, params, (e, r) => e ? rej(e) : res(r)));
+const all = (sql, params=[]) => new Promise((res, rej) => db.all(sql, params, (e, r) => e ? rej(e) : res(r)));
+const exec = (sql) => new Promise((res, rej) => db.exec(sql, (e) => e ? rej(e) : res()));
 
 (async function main() {
   try {
-    // 1) Apply schema
-    const schema = fs.readFileSync(SCHEMA_PATH, 'utf8');
     await run('PRAGMA foreign_keys = ON;');
-    await new Promise((res, rej) => db.exec(schema, (e) => e ? rej(e) : res()));
-    console.log('Database schema applied successfully.');
+    const schema = fs.readFileSync(SCHEMA_PATH, 'utf8');
+    await exec(schema);
+    console.log('Schema applied.');
 
-    // 2) Seed users (safe to re-run)
-    const seedUsers = [
-      { email: 'alice@example.com',        password: 'password1' },
-      { email: 'bob@example.com',          password: 'password2' },
-      { email: 'mago@example.com',         password: 'mago'      },
-      { email: 'yacine.djeddi@gmail.com',  password: 'cityshare' }
+    // users
+    const users = [
+      { email: 'alice@example.com', password: 'password1' },
+      { email: 'bob@example.com',   password: 'password2' },
+      { email: 'mago@example.com',  password: 'mago' }
     ];
-    const userStmt = await new Promise((res) =>
-      res(db.prepare('INSERT OR IGNORE INTO users (email, password) VALUES (?, ?)'))
-    );
-    for (const u of seedUsers) {
-      const hash = bcrypt.hashSync(u.password, 10);
-      await new Promise((res, rej) => userStmt.run([u.email, hash], (e)=> e?rej(e):res()));
-    }
-    await new Promise((res, rej) => userStmt.finalize((e)=> e?rej(e):res()));
-    console.log('Seeded users:', seedUsers.map(u=>u.email).join(', '));
+    const ustmt = db.prepare('INSERT OR IGNORE INTO users (email, password) VALUES (?, ?)');
+    for (const u of users) ustmt.run([u.email, bcrypt.hashSync(u.password, 10)]);
+    await new Promise((res, rej) => ustmt.finalize((e)=> e?rej(e):res()));
+    const alice = (await get('SELECT id FROM users WHERE email=?', ['alice@example.com']))?.id;
+    const bob   = (await get('SELECT id FROM users WHERE email=?', ['bob@example.com']))?.id;
+    const mago  = (await get('SELECT id FROM users WHERE email=?', ['mago@example.com']))?.id;
 
-    // 3) Seed categories
-    const categories = ['clothing','tools','furniture','electronics','books','toys','kitchen','sports','kids','other'];
-    for (const name of categories) {
-      await run('INSERT OR IGNORE INTO categories (name) VALUES (?)', [name]);
-    }
-    const getCatId = (name) => get('SELECT id FROM categories WHERE name = ?', [name]).then(r=>r?.id);
+    // categories 
+    const cats = ['clothing','tools','furniture','electronics'];
+    const cstmt = db.prepare('INSERT OR IGNORE INTO categories (name) VALUES (?)');
+    cats.forEach(n => cstmt.run([n]));
+    await new Promise((res, rej) => cstmt.finalize((e)=> e?rej(e):res()));
+    const byName = {};
+    for (const n of cats) byName[n] = (await get('SELECT id FROM categories WHERE name=?', [n]))?.id;
 
-    // helpers
-    const getUserId = (email) => get('SELECT id FROM users WHERE email = ?', [email]).then(r=>r?.id);
-
-    const aliceId = await getUserId('alice@example.com');
-    const bobId   = await getUserId('bob@example.com');
-    const magoId  = await getUserId('mago@example.com');
-
-    const furn  = await getCatId('furniture');
-    const cloth = await getCatId('clothing');
-    const tools = await getCatId('tools');
-
-    // 4) Seed listings
-    const listings = [
+    // listings 
+    const L = [
       {
-        user_id: aliceId, item_name: 'IKEA Poäng Chair', description: 'Lightly used, pickup in SJ',
-        image_url: '/images/chair1.jpg', category_id: furn, type: 'sell', condition: 'good',
-        price_cents: 3500, status: 'active', usage_status: 'available', borrowed_by_user_id: null
+        user_id: alice, item_name: 'IKEA Poäng Chair', description: 'Lightly used, pickup in SJ',
+        image_url: '/images/chair1.jpg', category_id: byName['furniture'], type: 'sell', condition: 'good',
+        price_cents: 3500, status: 'active'
       },
       {
-        user_id: bobId, item_name: 'Winter Jacket (M)', description: 'Free to a good home',
-        image_url: '/images/jacket.jpg', category_id: cloth, type: 'donate', condition: 'fair',
-        price_cents: null, status: 'active', usage_status: 'available', borrowed_by_user_id: null
+        user_id: bob, item_name: 'Winter Jacket (M)', description: 'Free to a good home',
+        image_url: '/images/jacket.jpg', category_id: byName['clothing'], type: 'donate', condition: 'fair',
+        price_cents: null, status: 'active'
       },
       {
-        user_id: magoId, item_name: 'Cordless Drill', description: 'Borrow for weekend projects',
-        image_url: '/images/drill.avif', category_id: tools, type: 'borrow', condition: 'good',
-        price_cents: null, status: 'active', usage_status: 'borrowed', borrowed_by_user_id: bobId
+        user_id: mago, item_name: 'Cordless Drill', description: 'Borrow for weekend projects',
+        image_url: '/images/drill.avif', category_id: byName['tools'], type: 'borrow', condition: 'good',
+        price_cents: null, status: 'active'
+      },
+      {
+        user_id: mago, item_name: 'Nintendo Switch + 2 controllers', description: 'Weekend party rental. Includes Mario Kart.',
+        image_url: '/images/switch.jpg', category_id: byName['electronics'], type: 'borrow', condition: 'excellent',
+        price_cents: null, status: 'active'
       }
-    ].filter(x => x.user_id);
+    ].filter(x => x.user_id && x.category_id);
 
-    const listStmt = await new Promise((res) =>
-      res(db.prepare(
-        `INSERT OR IGNORE INTO listings
-         (user_id, item_name, description, image_url, category_id, type, condition,
-          price_cents, status, usage_status, borrowed_by_user_id)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?)`
-      ))
-    );
-    for (const l of listings) {
+    const sql =
+      `INSERT INTO listings
+       (user_id, item_name, description, image_url, category_id, type, condition, price_cents, status)
+       VALUES (?,?,?,?,?,?,?,?,?)`;
+    const lst = db.prepare(sql);
+    for (const r of L) {
       await new Promise((res, rej) =>
-        listStmt.run(
-          [l.user_id, l.item_name, l.description, l.image_url, l.category_id, l.type, l.condition,
-           l.price_cents, l.status, l.usage_status, l.borrowed_by_user_id],
-          (e)=> e?rej(e):res()
+        lst.run(
+          [r.user_id, r.item_name, r.description, r.image_url, r.category_id, r.type, r.condition, r.price_cents, r.status],
+          (e) => e ? rej(e) : res()
         )
       );
     }
-    await new Promise((res, rej) => listStmt.finalize((e)=> e?rej(e):res()));
-    console.log('Seeded listings:', listings.map(l=>l.item_name).join(', '));
+    await new Promise((res, rej) => lst.finalize((e)=> e?rej(e):res()));
+    console.log(`Seeded ${L.length} listings.`);
 
-    console.log('Seeding complete.');
+    const count = (await get('SELECT COUNT(*) AS n FROM listings')).n;
+    console.log('Total listings in DB:', count);
   } catch (e) {
-    console.error('Init error:', e.message);
+    console.error('Init error:', e); // full error
   } finally {
-    db.close(() => console.log('Closed the database connection.'));
+    db.close(() => console.log('Closed DB.'));
   }
 })();

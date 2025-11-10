@@ -1,5 +1,4 @@
-# Node.js dependencies
 node_modules/
-
-# Database file
-cityshare.db
+db/cityshare.db
+.env
+.DS_Store

@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Profile | CityShare</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+  /* All profile-only styles are scoped under .pf to avoid overriding style.css */
+  .pf { width: 100%; max-width: 1100px; padding: 16px; }
+
+  .pf-header {
+    display:flex; align-items:center; justify-content:space-between; 
+    margin-bottom: 16px;
+  }
+  .pf-brand { display:flex; align-items:center; gap:10px; font-weight:700; color:#ffd166; }
+  .pf-brand img { height:34px; width:34px; border-radius:8px; object-fit:cover; }
+
+  .pf-grid {
+    display:grid; grid-template-columns: 320px 1fr; gap:18px;
+  }
+  @media (max-width: 900px){ .pf-grid { grid-template-columns: 1fr; } }
+
+  .pf-card {
+    background-color: rgba(0,0,0,0.65);
+    border-radius: 14px;
+    box-shadow: 0 10px 24px rgba(0,0,0,.45);
+    padding: 18px;
+    color: #f5f5f5;
+  }
+
+  /* Left profile card */
+  .pf-profile { display:flex; flex-direction:column; align-items:center; text-align:center; gap:12px; }
+  .pf-avatar { width:112px; height:112px; border-radius:50%; object-fit:cover; border:3px solid rgba(255,255,255,.15); }
+  .pf-name { font-size:1.25rem; font-weight:700; }
+  .pf-muted { color:#cfcfcf; font-size:.95rem; }
+  .pf-chips { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:6px; }
+  .pf-chip { background:#1e1e22; padding:6px 10px; border-radius:999px; font-size:.85rem; }
+  .pf-chip-student { background:#22412d; border:1px solid #3aa76d; }
+
+  /* Listings */
+  .pf-list-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .pf-grid-items { display:grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap:14px; }
+  .pf-item { background:#111217; border:1px solid rgba(255,255,255,.06); border-radius:12px; overflow:hidden; cursor:pointer; }
+  .pf-item img { width:100%; height:150px; object-fit:cover; }
+  .pf-item-body { padding:10px 12px; }
+  .pf-item-title { font-weight:700; font-size:1rem; }
+  .pf-row { display:flex; gap:8px; align-items:center; justify-content:space-between; margin-top:6px; }
+  .pf-badge { padding:4px 8px; border-radius:999px; background:#1e2430; font-size:.78rem; }
+  .pf-price { font-weight:700; }
+
+  /* Modal (scoped) */
+  .pf-modal { position:fixed; inset:0; background:rgba(0,0,0,.65); display:none; align-items:center; justify-content:center; padding:16px; z-index:50; }
+  .pf-modal.open { display:flex; }
+  .pf-modal-card { width:min(640px, 96vw); background:rgba(0,0,0,.65); border-radius:16px; box-shadow:0 10px 24px rgba(0,0,0,.45); padding:18px; color:#fff; }
+  .pf-modal-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+  .pf-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  @media (max-width:600px){ .pf-grid-2 { grid-template-columns:1fr; } }
+  .pf-modal input, .pf-modal select, .pf-modal textarea {
+    width:100%; padding:10px 12px; border-radius:8px; border:1px solid rgba(255,255,255,.15);
+    background:#0f1014; color:#fff; outline:none; font-size:.95rem;
+  }
+  .pf-modal textarea { min-height:120px; resize:vertical; }
+  .pf-modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:6px; }
+</style>
+</head>
+<body>
+  <div class="pf">
+    <header class="pf-header">
+      <div class="pf-brand">
+        <img src="/images/Logo.png" alt="CityShare Logo"/>
+        <span>CityShare</span>
+      </div>
+      <form action="/logout" method="post">
+        <button class="btn btn-outline" type="submit">Log out</button>
+      </form>
+    </header>
+
+    <section class="pf-grid">
+      <!-- Left: Profile card -->
+      <aside class="pf-card pf-profile">
+        <img id="avatar" class="pf-avatar" src="/images/default-avatar.png" alt="User Avatar"/>
+        <div id="displayName" class="pf-name">—</div>
+        <div id="username" class="pf-muted">@—</div>
+        <div class="pf-chips">
+          <div id="emailChip" class="pf-chip">—</div>
+          <div id="studentChip" class="pf-chip pf-chip-student" style="display:none;">🎓 Student</div>
+          <div id="locationChip" class="pf-chip">Add location</div>
+        </div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin-top:10px">
+          <a class="btn btn-primary" href="/profile/edit">Edit profile</a>
+          <form action="/account/delete" method="post" onsubmit="return confirm('Delete your account? This cannot be undone.');">
+            <button class="btn btn-danger" type="submit">Delete account</button>
+          </form>
+        </div>
+      </aside>
+
+      <!-- Right: Listings -->
+      <section class="pf-card">
+        <div class="pf-list-head">
+          <h2 style="margin:0">My Listings</h2>
+          <a class="btn btn-primary" href="/items/new">New listing</a>
+        </div>
+
+        <div id="listingGrid" class="pf-grid-items"></div>
+
+        <div style="display:flex; justify-content:center; margin-top:14px">
+          <form action="/items/pause_all" method="post" onsubmit="return confirm('Pause all your active listings?');">
+            <button class="btn btn-outline" type="submit">Pause all my listings</button>
+          </form>
+        </div>
+      </section>
+    </section>
+  </div>
+
+  <!-- Modal -->
+  <div id="itemModal" class="pf-modal" role="dialog" aria-modal="true" aria-labelledby="itemModalTitle">
+    <div class="pf-modal-card">
+      <div class="pf-modal-head">
+        <h3 id="itemModalTitle" style="margin:0">Edit listing</h3>
+        <button class="btn btn-outline" onclick="closeItemModal()">Close</button>
+      </div>
+
+      <form id="itemForm" method="post" action="">
+        <input type="hidden" name="_method" value="PUT" />
+        <div class="pf-grid-2">
+          <label>Title <input id="f_title" name="item_name" required /></label>
+          <label>
+            Type
+            <select id="f_type" name="type" required>
+              <option value="sell">Sell</option>
+              <option value="donate">Donate</option>
+              <option value="borrow">Borrow</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="pf-grid-2">
+          <label>Category <input id="f_category" name="category" placeholder="tools, clothing, electronics…"/></label>
+          <label>Price (USD) <input id="f_price" name="price" type="number" min="0" step="0.01" placeholder="0.00"/></label>
+        </div>
+
+        <label>Description <textarea id="f_description" name="description"></textarea></label>
+
+        <label>
+          Status
+          <select id="f_status" name="status">
+            <option value="active">Active</option>
+            <option value="reserved">Reserved</option>
+            <option value="archived">Archived</option>
+          </select>
+        </label>
+
+        <div class="pf-modal-actions">
+          <button class="btn" type="button" onclick="closeItemModal()">Cancel</button>
+          <button id="deleteBtn" class="btn btn-danger" type="button">Delete</button>
+          <button class="btn btn-primary" type="submit">Save</button>
+        </div>
+      </form>
+
+      <form id="deleteForm" method="post" action="" style="display:none">
+        <input type="hidden" name="_method" value="DELETE" />
+      </form>
+    </div>
+  </div>
+
+  <script>
+  // --- Helpers ---
+  const $ = (sel) => document.querySelector(sel);
+  const formatDollars = (cents) =>
+    (cents !== null && cents !== undefined && Number.isFinite(+cents))
+      ? (cents / 100).toFixed(2)
+      : null;
+
+  // Profile DOM
+  const avatarEl   = $('#avatar');
+  const nameEl     = $('#displayName');
+  const usernameEl = $('#username');
+  const emailChip  = $('#emailChip');
+  const studentChip= $('#studentChip');
+  const locationChip = $('#locationChip');
+  const grid       = $('#listingGrid');
+
+  // Modal DOM
+  const modal        = document.getElementById('itemModal');
+  const itemForm     = document.getElementById('itemForm');
+  const deleteForm   = document.getElementById('deleteForm');
+  const f_title      = document.getElementById('f_title');
+  const f_type       = document.getElementById('f_type');
+  const f_category   = document.getElementById('f_category');
+  const f_price      = document.getElementById('f_price');
+  const f_description= document.getElementById('f_description');
+  const f_status     = document.getElementById('f_status');
+
+  // --- Fetch and render profile ---
+  async function loadProfile(){
+    const res = await fetch('/api/me');
+    if (res.status === 401) { location.href = '/login'; return; }
+    if (!res.ok) { console.warn('/api/me failed'); return; }
+
+    const { user, profile } = await res.json();
+
+    if (avatarEl)   avatarEl.src = (profile?.avatar_url || '/images/default-avatar.png');
+    if (nameEl)     nameEl.textContent = profile?.display_name || '—';
+    if (usernameEl) usernameEl.textContent = profile?.username ? `@${profile.username}` : '@—';
+    if (emailChip)  emailChip.textContent = user?.email || '—';
+    if (locationChip) locationChip.textContent = profile?.location || 'Add location';
+
+    if (studentChip) {
+      studentChip.style.display = (profile?.is_student === 1) ? 'inline-block' : 'none';
+    }
+  }
+
+  // --- Fetch and render listings ---
+  async function loadMyItems(){
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    const res = await fetch('/api/my-items');
+    if (res.status === 401) { location.href = '/login'; return; }
+    if (!res.ok) { console.warn('/api/my-items failed'); return; }
+
+    const items = await res.json();
+
+    items.forEach(it => {
+      const card = document.createElement('article');
+      card.className = 'item';
+      card.dataset.id = it.id;
+      card.dataset.item_name = it.item_name || '';
+      card.dataset.description = it.description || '';
+      card.dataset.type = it.type || 'sell';
+      card.dataset.category = it.category || '';
+      card.dataset.price_cents = (it.price_cents ?? '');
+      card.dataset.status = it.status || 'active';
+
+      card.onclick = () => openItemModal(card);
+
+      card.innerHTML = `
+        <img src="${it.image_url || '/images/item-placeholder.jpg'}" alt="">
+        <div class="item-body">
+          <div class="item-title">${it.item_name || 'Untitled'}</div>
+          <div class="row">
+            <span class="badge">${it.type}</span>
+            <span class="price">${
+              it.price_cents ? ('$' + formatDollars(it.price_cents)) : '—'
+            }</span>
+          </div>
+        </div>
+      `;
+      grid.appendChild(card);
+    });
+  }
+
+  // --- Modal open/close + populate ---
+  function openItemModal(cardEl){
+    const id = cardEl.dataset.id;
+    if (!id) return;
+
+    f_title.value       = cardEl.dataset.item_name || '';
+    f_type.value        = cardEl.dataset.type || 'sell';
+    f_category.value    = cardEl.dataset.category || '';
+    f_description.value = cardEl.dataset.description || '';
+    f_status.value      = cardEl.dataset.status || 'active';
+
+    const cents = parseInt(cardEl.dataset.price_cents || '0', 10);
+    f_price.value = cents ? (cents/100).toFixed(2) : '';
+
+    // point to listings (not items)
+    itemForm.action  = `/listings/${id}`;
+    deleteForm.action= `/listings/${id}`;
+
+    modal.classList.add('open');
+  }
+  function closeItemModal(){ modal.classList.remove('open'); }
+
+  // Delete (form-submit version; requires method-override on server)
+  const delBtn = document.getElementById('deleteBtn');
+  if (delBtn) {
+    delBtn.addEventListener('click', () => {
+      if (confirm('Delete this listing? This cannot be undone.')) {
+        deleteForm.submit();
+      }
+    });
+  }
+
+  // Click outside to close
+  if (modal) {
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeItemModal(); });
+  }
+
+  // --- Init ---
+  loadProfile();
+  loadMyItems();
+</script>
+
+</body>
+</html>
+

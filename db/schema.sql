@@ -1,20 +1,37 @@
 -- Enable foreign keys in SQLite
 PRAGMA foreign_keys = ON;
 
--- Users: auth only
+-- USERS (auth)
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   email TEXT UNIQUE NOT NULL,
-  password TEXT NOT NULL  -- bcrypt hash
+  password TEXT NOT NULL,             -- bcrypt hash
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Profiles: 1:1 with users
+-- PROFILES (1:1 with users)
 CREATE TABLE IF NOT EXISTS profiles (
-  user_id INTEGER PRIMARY KEY,
+  user_id INTEGER PRIMARY KEY,        -- same as users.id
   display_name TEXT NOT NULL,
+  username TEXT UNIQUE,               -- optional: @handle
   bio TEXT,
-  location TEXT,              --  "San Jose, CA"
-  avatar_url TEXT,
+  location TEXT,                      -- general location (“San Jose, CA”)
+  
+  -- Detailed address (I think we should have it just for security reasons)
+  address_line1 TEXT,
+  address_line2 TEXT,
+  city TEXT,
+  region TEXT,                        -- state/province
+  postal_code TEXT,
+  country TEXT,                       -- e.g. "US"
+
+  dob TEXT,                           -- YYYY-MM-DD (used for 18+ check)
+  is_student INTEGER DEFAULT 0,       -- 0 = false, 1 = true 
+  avatar_url TEXT,                    -- /uploads/avatars/filename.ext
+  
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
