@@ -1,0 +1,207 @@
+// Prisma schema for CityShare
+// Using PostgreSQL via Supabase
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================
+// USERS & AUTH
+// ============================================
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String // bcrypt hash
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  profile          Profile?
+  listings         Listing[]
+  borrowedListings Listing[]  @relation("BorrowedListings")
+  favorites        Favorite[]
+  sentMessages     Message[]  @relation("SentMessages")
+  receivedMessages Message[]  @relation("ReceivedMessages")
+
+  @@map("users")
+}
+
+model Profile {
+  userId   Int     @id @map("user_id")
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  displayName String  @map("display_name")
+  username    String? @unique
+  bio         String?
+  location    String? // general location ("San Jose, CA")
+
+  // Detailed address
+  addressLine1 String? @map("address_line1")
+  addressLine2 String? @map("address_line2")
+  city         String?
+  region       String? // state/province
+  postalCode   String? @map("postal_code")
+  country      String? // e.g. "US"
+
+  dob       String? // YYYY-MM-DD (used for 18+ check)
+  isStudent Boolean @default(false) @map("is_student")
+  avatarUrl String? @map("avatar_url")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("profiles")
+}
+
+// ============================================
+// CATEGORIES
+// ============================================
+
+model Category {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique
+  listings Listing[]
+
+  @@map("categories")
+}
+
+// ============================================
+// LISTINGS
+// ============================================
+
+enum ListingType {
+  sell
+  donate
+  borrow
+}
+
+enum ListingStatus {
+  active
+  paused
+  deleted
+  closed
+  sold
+}
+
+enum UsageStatus {
+  available
+  reserved
+  borrowed
+}
+
+enum Condition {
+  new
+  like_new
+  good
+  fair
+  poor
+}
+
+model Listing {
+  id             Int     @id @default(autoincrement())
+  listingNumber  String? @unique @map("listing_number")
+
+  // Item details
+  itemName    String @map("item_name")
+  description String?
+  imageUrl    String? @map("image_url") // optional primary image
+
+  categoryId  Int?     @map("category_id")
+  category    Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  type        ListingType
+  condition   Condition?
+  priceCents  Int?        @map("price_cents") // NULL for donate/borrow
+
+  // Lifecycle/status
+  status      ListingStatus @default(active)
+  usageStatus UsageStatus   @default(available) @map("usage_status")
+
+  // Borrowing
+  borrowedByUserId Int?      @map("borrowed_by_user_id")
+  borrowedByUser   User?     @relation("BorrowedListings", fields: [borrowedByUserId], references: [id], onDelete: SetNull)
+  borrowedUntil    DateTime? @map("borrowed_until")
+
+  // Owner
+  userId    Int      @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  images    ListingImage[]
+  favorites Favorite[]
+  messages  Message[]
+
+  @@index([userId])
+  @@index([categoryId])
+  @@index([type])
+  @@index([status])
+  @@index([usageStatus])
+  @@index([createdAt(sort: Desc)])
+  @@map("listings")
+}
+
+model ListingImage {
+  id        Int      @id @default(autoincrement())
+  listingId Int      @map("listing_id")
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  url          String
+  storageUrl   String? @map("storage_url") // Supabase storage URL
+  cloudinaryId String? @map("cloudinary_id") // if using Cloudinary
+  fileSize     Int?    @map("file_size")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([listingId])
+  @@map("listing_images")
+}
+
+// ============================================
+// FAVORITES / WISHLIST
+// ============================================
+
+model Favorite {
+  userId    Int @map("user_id")
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  listingId Int     @map("listing_id")
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@id([userId, listingId])
+  @@map("favorites")
+}
+
+// ============================================
+// MESSAGES
+// ============================================
+
+model Message {
+  id         Int      @id @default(autoincrement())
+
+  fromUserId Int      @map("from_user_id")
+  fromUser   User     @relation("SentMessages", fields: [fromUserId], references: [id], onDelete: Cascade)
+
+  toUserId   Int      @map("to_user_id")
+  toUser     User     @relation("ReceivedMessages", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  listingId  Int?     @map("listing_id")
+  listing    Listing? @relation(fields: [listingId], references: [id], onDelete: SetNull)
+
+  body       String
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([toUserId, createdAt(sort: Desc)])
+  @@map("messages")
+}
