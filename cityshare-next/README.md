@@ -9,3 +9,7 @@ npm run dev
 ```
 
 Open http://localhost:3000
+
+For DB:
+npx prisma generate
+npm run db:seed
