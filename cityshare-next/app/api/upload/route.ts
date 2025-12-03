@@ -6,6 +6,8 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
     const files = formData.getAll('files') as File[]
+    // Optional folder param to place uploads in a subfolder (e.g., 'avatars')
+    const folder = formData.get('folder') as string | null
 
     if (files.length === 0) {
       return NextResponse.json(
@@ -39,10 +41,10 @@ export async function POST(request: NextRequest) {
     // Upload files
     let urls: string[]
     if (files.length === 1) {
-      const url = await uploadImage(files[0], 'listings')
+      const url = await uploadImage(files[0], 'listings', folder ?? undefined)
       urls = [url]
     } else {
-      urls = await uploadMultipleImages(files, 'listings')
+      urls = await uploadMultipleImages(files, 'listings', folder ?? undefined)
     }
 
     return NextResponse.json({

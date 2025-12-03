@@ -77,10 +77,12 @@ export function UserMenu() {
       <Button onClick={handlePostItem}>Post Item</Button>
 
       <div className="flex items-center gap-2">
-        <Avatar className="h-8 w-8">
-          <AvatarImage src={user.user_metadata?.avatar_url} />
-          <AvatarFallback>{initials}</AvatarFallback>
-        </Avatar>
+        <Link href="/profile" className="inline-flex items-center">
+          <Avatar className="h-8 w-8">
+            <AvatarImage src={user.user_metadata?.avatar_url} />
+            <AvatarFallback>{initials}</AvatarFallback>
+          </Avatar>
+        </Link>
         <span className="text-sm font-medium hidden md:inline">
           {displayName}
         </span>
